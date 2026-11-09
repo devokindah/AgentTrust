@@ -8,7 +8,9 @@ import "./AgentRegistry.sol";
 contract AgentPermissions is Ownable, ReentrancyGuard {
     AgentRegistry public immutable registry;
     mapping(uint256 => address) public agentWallet;
+    mapping(uint256 => uint256) public agentWalletOwnerNonce;
     mapping(uint256 => mapping(address => mapping(bytes4 => uint64))) public permissionExpiry;
+    mapping(uint256 => mapping(address => mapping(bytes4 => uint256))) private permissionNonce;
 
     event AgentWalletUpdated(uint256 indexed agentId, address indexed wallet);
     event PermissionUpdated(uint256 indexed agentId, address indexed target, bytes4 indexed selector, uint64 expiresAt);
@@ -23,6 +25,7 @@ contract AgentPermissions is Ownable, ReentrancyGuard {
     function setAgentWallet(uint256 agentId, address wallet) external onlyAgentOwner(agentId) {
         require(wallet != address(0), "Invalid wallet");
         agentWallet[agentId] = wallet;
+        agentWalletOwnerNonce[agentId] = registry.ownershipNonce(agentId);
         emit AgentWalletUpdated(agentId, wallet);
     }
 
@@ -36,6 +39,7 @@ contract AgentPermissions is Ownable, ReentrancyGuard {
         require(selector != bytes4(0), "Invalid selector");
         require(expiresAt > block.timestamp, "Expiry must be in the future");
         permissionExpiry[agentId][target][selector] = expiresAt;
+        permissionNonce[agentId][target][selector] = registry.ownershipNonce(agentId);
         emit PermissionUpdated(agentId, target, selector, expiresAt);
     }
 
@@ -45,7 +49,8 @@ contract AgentPermissions is Ownable, ReentrancyGuard {
     }
 
     function isPermissionActive(uint256 agentId, address target, bytes4 selector) public view returns (bool) {
-        return permissionExpiry[agentId][target][selector] > block.timestamp;
+        return permissionExpiry[agentId][target][selector] > block.timestamp
+            && permissionNonce[agentId][target][selector] == registry.ownershipNonce(agentId);
     }
 
     function execute(uint256 agentId, address target, bytes calldata data) external nonReentrant returns (bytes memory) {

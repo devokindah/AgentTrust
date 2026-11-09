@@ -1,4 +1,5 @@
 /* eslint @typescript-eslint/no-require-imports: "off" */
+require("dotenv").config({ path: ".env.local" });
 require("@nomicfoundation/hardhat-toolbox");
 
 const accounts = process.env.DEPLOYER_PRIVATE_KEY ? [process.env.DEPLOYER_PRIVATE_KEY] : [];

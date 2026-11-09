@@ -17,6 +17,7 @@ contract AgentRegistry is Ownable {
     }
 
     uint256 public agentCount;
+    mapping(uint256 => uint256) public ownershipNonce;
     mapping(uint256 => Agent) private agents;
 
     event AgentRegistered(uint256 indexed agentId, address indexed owner, string name);
@@ -87,6 +88,7 @@ contract AgentRegistry is Ownable {
         require(newOwner != address(0), "Invalid owner");
         address previousOwner = agents[agentId].owner;
         agents[agentId].owner = newOwner;
+        ownershipNonce[agentId] += 1;
         emit AgentOwnershipTransferred(agentId, previousOwner, newOwner);
     }
 

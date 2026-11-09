@@ -24,6 +24,7 @@ contract AgentSpending is Ownable {
     AgentPermissions public immutable permissions;
     mapping(uint256 => mapping(address => SpendingLimit)) public limits;
     mapping(bytes32 => bool) public usedRequests;
+    mapping(uint256 => mapping(address => uint256)) private limitOwnerNonce;
 
     event SpendingLimitUpdated(uint256 indexed agentId, address indexed token, uint256 perTransaction, uint256 daily, uint256 total);
     event SpendingLimitRevoked(uint256 indexed agentId, address indexed token);
@@ -50,6 +51,7 @@ contract AgentSpending is Ownable {
         limit.daily = daily;
         limit.total = total;
         limit.enabled = true;
+        limitOwnerNonce[agentId][token] = registry.ownershipNonce(agentId);
         emit SpendingLimitUpdated(agentId, token, perTransaction, daily, total);
     }
 
@@ -72,8 +74,13 @@ contract AgentSpending is Ownable {
         require(!usedRequests[requestKey], "Request already used");
         AgentRegistry.Agent memory agent = registry.getAgent(agentId);
         require(agent.active, "Agent inactive");
+        require(
+            permissions.agentWalletOwnerNonce(agentId) == registry.ownershipNonce(agentId),
+            "Agent wallet owner changed"
+        );
 
         SpendingLimit storage limit = limits[agentId][token];
+        require(limitOwnerNonce[agentId][token] == registry.ownershipNonce(agentId), "Spending authorization outdated");
         require(limit.enabled, "Spending disabled");
         require(amount > 0 && amount <= limit.perTransaction, "Transaction limit exceeded");
         uint64 currentDay = uint64(block.timestamp / 1 days);

@@ -83,6 +83,32 @@ describe("AgentTrust contracts", function () {
       .to.be.revertedWith("Permission denied or expired");
   });
 
+  it("invalidates execution wallets and permissions after ownership transfer", async function () {
+    const Target = await ethers.getContractFactory("PermissionTarget");
+    const target = await Target.deploy();
+    const selector = target.interface.getFunction("setValue").selector;
+    const expiry = (await ethers.provider.getBlock("latest")).timestamp + 60;
+    await permissions.connect(agentOwner).setAgentWallet(agentId, agentWallet.address);
+    await permissions.connect(agentOwner).grantPermission(agentId, await target.getAddress(), selector, expiry);
+    expect(await permissions.isPermissionActive(agentId, await target.getAddress(), selector)).to.equal(true);
+
+    await registry.connect(agentOwner).transferAgentOwnership(agentId, stranger.address);
+    expect(await registry.ownershipNonce(agentId)).to.equal(1n);
+    expect(await permissions.agentWalletOwnerNonce(agentId)).to.equal(0n);
+    expect(await permissions.isPermissionActive(agentId, await target.getAddress(), selector)).to.equal(false);
+    const callData = target.interface.encodeFunctionData("setValue", [42]);
+    await expect(permissions.connect(agentWallet).execute(agentId, await target.getAddress(), callData))
+      .to.be.revertedWith("Permission denied or expired");
+
+    await registry.connect(stranger).transferAgentOwnership(agentId, agentOwner.address);
+    expect(await registry.ownershipNonce(agentId)).to.equal(2n);
+    expect(await permissions.isPermissionActive(agentId, await target.getAddress(), selector)).to.equal(false);
+    await permissions.connect(agentOwner).setAgentWallet(agentId, agentWallet.address);
+    await permissions.connect(agentOwner).grantPermission(agentId, await target.getAddress(), selector, expiry);
+    await permissions.connect(agentWallet).execute(agentId, await target.getAddress(), callData);
+    expect(await target.value()).to.equal(42n);
+  });
+
   it("enforces spending caps, evaluator wallet, exact allowance, and replay protection", async function () {
     const Token = await ethers.getContractFactory("MockToken");
     const token = await Token.deploy();
@@ -114,5 +140,26 @@ describe("AgentTrust contracts", function () {
     await spending.connect(agentOwner).revokeLimits(agentId, await token.getAddress());
     await expect(spending.connect(agentWallet).spend(agentId, await token.getAddress(), stranger.address, 1, ethers.id("revoked")))
       .to.be.revertedWith("Spending disabled");
+  });
+
+  it("blocks stale spending authority after ownership transfer until the new owner reconfigures it", async function () {
+    const Token = await ethers.getContractFactory("MockToken");
+    const token = await Token.deploy();
+    await permissions.connect(agentOwner).setAgentWallet(agentId, agentWallet.address);
+    await spending.connect(agentOwner).setLimits(agentId, await token.getAddress(), 50, 100, 130);
+    await token.mint(stranger.address, 100);
+    await token.connect(stranger).approve(await spending.getAddress(), 100);
+    await registry.connect(agentOwner).transferAgentOwnership(agentId, stranger.address);
+
+    await expect(spending.connect(agentWallet).spend(agentId, await token.getAddress(), stranger.address, 10, ethers.id("stale")))
+      .to.be.revertedWith("Agent wallet owner changed");
+
+    await permissions.connect(stranger).setAgentWallet(agentId, stranger.address);
+    await expect(spending.connect(stranger).spend(agentId, await token.getAddress(), stranger.address, 10, ethers.id("stale-limits")))
+      .to.be.revertedWith("Spending authorization outdated");
+
+    await spending.connect(stranger).setLimits(agentId, await token.getAddress(), 50, 100, 130);
+    await spending.connect(stranger).spend(agentId, await token.getAddress(), stranger.address, 10, ethers.id("new-owner"));
+    expect(await token.balanceOf(stranger.address)).to.equal(100n);
   });
 });

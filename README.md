@@ -39,6 +39,7 @@ The contracts are deliberately modular:
 - `AgentReputation.sol` accepts unique task outcomes from explicitly authorized evaluators and prevents the agent owner from rating their own agent.
 - `AgentPermissions.sol` binds a designated agent wallet to target/selector allowlists with expiry and forwards allowed calls through its gateway.
 - `AgentSpending.sol` moves ERC-20 tokens from the owner only through the designated agent wallet and enforces per-transaction, daily, and total caps with request replay protection.
+- Agent wallet, call-permission, and spending-limit authorizations are bound to the current registry owner. Transferring an agent invalidates the previous owner's execution authority; the new owner must configure a wallet, permissions, and limits again.
 
 Compile and test locally:
 
@@ -52,6 +53,8 @@ Deploy to testnet after setting a funded `DEPLOYER_PRIVATE_KEY` locally:
 ```powershell
 npm run deploy:testnet
 ```
+
+The Hardhat configuration loads `.env.local` (copied from `.env.example`) so the deployer key does not need to be pasted into a command or chat. Keep this ignored local file private. The deployment script checks the RPC's actual chain ID against the selected Hardhat network before sending transactions.
 
 The deployer owns the contracts and is the only account allowed to configure reputation evaluators. The deployment script prints contract addresses; it does not automatically authorize evaluators. Use `AgentReputation.setEvaluator(address, true)` from the contract owner after verifying evaluator addresses.
 

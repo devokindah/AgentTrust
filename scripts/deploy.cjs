@@ -2,6 +2,12 @@
 const hre = require("hardhat");
 
 async function main() {
+  const actualNetwork = await hre.ethers.provider.getNetwork();
+  const expectedChainId = hre.network.config.chainId;
+  if (expectedChainId && actualNetwork.chainId !== BigInt(expectedChainId)) {
+    throw new Error(`Connected RPC chain ID ${actualNetwork.chainId} does not match configured chain ID ${expectedChainId}.`);
+  }
+
   const [deployer] = await hre.ethers.getSigners();
   if (!deployer) throw new Error("Set DEPLOYER_PRIVATE_KEY in the environment before deploying.");
 

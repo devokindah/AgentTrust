@@ -1,0 +1,13 @@
+.git
+.next
+.vercel
+node_modules
+artifacts
+cache
+coverage
+contracts
+contract-tests
+scripts
+.env*
+tsconfig.tsbuildinfo
+AGENTS.md

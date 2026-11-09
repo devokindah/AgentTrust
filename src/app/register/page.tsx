@@ -52,7 +52,7 @@ export default function RegisterPage() {
   return (
     <>
       <PageHeader eyebrow="IDENTITY / CREATE" title="Register an agent" description="Create an on-chain identity. Your connected wallet becomes its owner." action={<div className="step-pill"><span>1</span> Identity <i /> <span>2</span> Controls <i /> <span>3</span> Reputation</div>} />
-      {!contractAddresses.registry && <Notice tone="warning">AgentRegistry is not deployed or configured. Set <code>NEXT_PUBLIC_AGENT_REGISTRY_ADDRESS</code> after deployment to enable registration.</Notice>}
+      {!contractAddresses.registry && <Notice tone="warning">Registration is unavailable because this deployment has no configured AgentRegistry address. Deploy AgentRegistry to BOT Chain testnet, add its address as <code>NEXT_PUBLIC_AGENT_REGISTRY_ADDRESS</code> in Vercel&apos;s Production environment variables, then redeploy. The Register agent button will remain disabled until then.</Notice>}
       {error && <Notice tone="warning">{error}</Notice>}
       {message && <Notice tone="success">{message}</Notice>}
       {agentId && <Notice tone="success"><Link className="text-link" href={`/agents/${agentId}`}>View registered agent #{agentId} <ArrowRight size={14} /></Link></Notice>}
